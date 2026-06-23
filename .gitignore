@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+.env
+vectorstore_data/
+corpus/*.pdf
+results/*.csv
+results/*.txt
+.pytest_cache/
+*.egg-info/
+.DS_Store
+.gstack/

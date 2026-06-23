@@ -1,0 +1,214 @@
+"""50-question evaluation set for the RAG pipeline.
+
+40 answerable questions (factual / procedural / cross-doc) grounded in the
+actual corpus content, plus 10 unanswerable questions covering topics the
+corpus does not cover (other countries' regulators, future/unreleased
+rules, etc.) to measure refusal behavior.
+
+expected_page_range values were located by grepping the extracted page
+text for the relevant keywords (see scripts/build_index.py corpus); they
+are approximate (the fact may span/repeat across nearby pages) and are
+used for Hit@k / MRR, not exact-match scoring.
+"""
+
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+EVAL_SET_PATH = Path(__file__).parent / "eval_set.json"
+
+FAA = "faa_ac_107-2a_small_uas.pdf"
+DGCA = "dgca_car_section3_series_x_part1.pdf"
+ARXIV_INTEGRATION = "arxiv_2309_08537v1.pdf"
+ARXIV_RELIABILITY = "arxiv_2501_07743v2.pdf"
+ARXIV_TRAJECTORY = "arxiv_1810_09568v1.pdf"
+
+EVAL_QUESTIONS = [
+    # --- Factual lookup (FAA) ---
+    {"id": "q001", "question": "What is the maximum altitude a small UAS may fly above ground level under FAA Part 107?",
+     "expected_source": FAA, "expected_page_range": [29, 30], "question_type": "factual",
+     "ground_truth": "400 feet above ground level (AGL), with an exception for flights near structures."},
+    {"id": "q002", "question": "What must a remote pilot maintain with their small unmanned aircraft at all times under FAA rules?",
+     "expected_source": FAA, "expected_page_range": [12, 19], "question_type": "factual",
+     "ground_truth": "Visual line of sight (VLOS) with the aircraft."},
+    {"id": "q003", "question": "What certificate must a remote pilot in command hold under Part 107?",
+     "expected_source": FAA, "expected_page_range": [13, 19], "question_type": "factual",
+     "ground_truth": "A remote pilot certificate with a small UAS rating."},
+    {"id": "q004", "question": "Under what condition can a small UAS legally conduct night operations under Part 107?",
+     "expected_source": FAA, "expected_page_range": [22, 88], "question_type": "factual",
+     "ground_truth": "Anti-collision lighting visible for at least 3 statute miles, and other night-specific requirements."},
+    {"id": "q005", "question": "What kind of device can a remote pilot install to determine compliance with the 400 feet AGL altitude limit?",
+     "expected_source": FAA, "expected_page_range": [29, 30], "question_type": "factual",
+     "ground_truth": "A calibrated altitude-reporting device or a GPS device capable of reporting MSL altitude."},
+    {"id": "q006", "question": "Does FAA Part 107 require small UAS to be registered with the FAA?",
+     "expected_source": FAA, "expected_page_range": [2, 8], "question_type": "factual",
+     "ground_truth": "Yes, most small UAS must be registered with the FAA."},
+    {"id": "q007", "question": "What does AC 107-2A say about airworthiness certification for small unmanned aircraft?",
+     "expected_source": FAA, "expected_page_range": [6, 14], "question_type": "factual",
+     "ground_truth": "Small UAS operated under Part 107 are not required to have an airworthiness certificate."},
+    {"id": "q008", "question": "Is there a maximum groundspeed for small UAS operations under Part 107?",
+     "expected_source": FAA, "expected_page_range": [29, 58], "question_type": "factual",
+     "ground_truth": "Yes, 87 knots (100 mph) groundspeed."},
+
+    # --- Factual lookup (DGCA) ---
+    {"id": "q009", "question": "What identification number must be obtained for an unmanned aircraft under DGCA CAR Series X?",
+     "expected_source": DGCA, "expected_page_range": [1, 5], "question_type": "factual",
+     "ground_truth": "A Unique Identification Number (UIN)."},
+    {"id": "q010", "question": "What operator permit is required for civil RPAS operations in India under DGCA CAR Series X?",
+     "expected_source": DGCA, "expected_page_range": [1, 7], "question_type": "factual",
+     "ground_truth": "An Unmanned Aircraft Operator Permit (UAOP)."},
+    {"id": "q011", "question": "What digital platform enforces 'No Permission, No Takeoff' for Indian drone operations?",
+     "expected_source": DGCA, "expected_page_range": [2, 9], "question_type": "factual",
+     "ground_truth": "The NPNT (No Permission No Takeoff) compliant Digital Sky platform."},
+    {"id": "q012", "question": "What is the smallest RPAS weight category defined in DGCA CAR Series X?",
+     "expected_source": DGCA, "expected_page_range": [4, 9], "question_type": "factual",
+     "ground_truth": "Nano category."},
+    {"id": "q013", "question": "Does DGCA CAR Series X require RPAS operators to maintain insurance?",
+     "expected_source": DGCA, "expected_page_range": [7, 24], "question_type": "factual",
+     "ground_truth": "Yes, insurance requirements are specified for RPAS operations."},
+    {"id": "q014", "question": "What kind of operations specifications document is referenced in DGCA's RPAS Annexures?",
+     "expected_source": DGCA, "expected_page_range": [21, 26], "question_type": "factual",
+     "ground_truth": "RPAS Operations Specifications listing UIN, operations type, area of base, approved personnel, and operating limitations."},
+    {"id": "q015", "question": "What must an unmanned aircraft do under DGCA rules regarding registration before operating?",
+     "expected_source": DGCA, "expected_page_range": [18, 19], "question_type": "factual",
+     "ground_truth": "The unmanned aircraft must be registered and obtain a UIN before operation."},
+
+    # --- Factual lookup (arXiv technical papers) ---
+    {"id": "q016", "question": "What method does the trajectory-modeling paper use to reconstruct aircraft paths from noisy position data?",
+     "expected_source": ARXIV_TRAJECTORY, "expected_page_range": [1, 3], "question_type": "factual",
+     "ground_truth": "A linear-time trajectory reconstruction procedure for noisy, irregularly sampled position data."},
+    {"id": "q017", "question": "What aeronautical communication factor does the RPAS reliability paper study?",
+     "expected_source": ARXIV_RELIABILITY, "expected_page_range": [1, 4], "question_type": "factual",
+     "ground_truth": "Uncertainty in aeronautical communication and its effect on RPAS performance reliability."},
+    {"id": "q018", "question": "What airspace classes does the regional UAS integration paper discuss for the US national airspace system?",
+     "expected_source": ARXIV_INTEGRATION, "expected_page_range": [1, 2], "question_type": "factual",
+     "ground_truth": "Airspace Classes A and B, among others, where flights must be separated."},
+
+    # --- Procedural ---
+    {"id": "q019", "question": "What is the process for a remote pilot to obtain certification under Part 107?",
+     "expected_source": FAA, "expected_page_range": [13, 36], "question_type": "procedural",
+     "ground_truth": "Pass the initial aeronautical knowledge test (or complete a flight review) at an FAA-approved testing center, then apply via IACRA."},
+    {"id": "q020", "question": "What is the process an operator follows to obtain a UAOP from DGCA?",
+     "expected_source": DGCA, "expected_page_range": [1, 7], "question_type": "procedural",
+     "ground_truth": "Apply to DGCA with the required documentation; DGCA issues the UAOP after security/operational clearance."},
+    {"id": "q021", "question": "What steps does Digital Sky's NPNT process require before each drone flight in India?",
+     "expected_source": DGCA, "expected_page_range": [2, 12], "question_type": "procedural",
+     "ground_truth": "The operator must request and receive a flight permission artifact via the Digital Sky platform before takeoff."},
+    {"id": "q022", "question": "What is the process for calculating AGL altitude using a GPS device per FAA guidance?",
+     "expected_source": FAA, "expected_page_range": [29, 30], "question_type": "procedural",
+     "ground_truth": "Use a GPS device reporting MSL altitude, then subtract the MSL elevation of the control station to get AGL."},
+    {"id": "q023", "question": "What is the process for registering a small unmanned aircraft with the FAA?",
+     "expected_source": FAA, "expected_page_range": [2, 8], "question_type": "procedural",
+     "ground_truth": "Register through the FAA DroneZone website, providing aircraft and owner information."},
+    {"id": "q024", "question": "What procedure must be followed before conducting night operations under Part 107?",
+     "expected_source": FAA, "expected_page_range": [22, 88], "question_type": "procedural",
+     "ground_truth": "Complete the recurrent training/knowledge requirements covering night operations and equip anti-collision lighting."},
+    {"id": "q025", "question": "What is the procedure for obtaining a Unique Identification Number (UIN) for an Indian RPAS?",
+     "expected_source": DGCA, "expected_page_range": [1, 5], "question_type": "procedural",
+     "ground_truth": "Apply through the Digital Sky platform with manufacturer and owner details to receive a UIN."},
+
+    # --- Cross-document ---
+    {"id": "q026", "question": "How does India's UIN/UAOP system compare to the FAA's registration and remote pilot certificate system?",
+     "expected_source": DGCA, "expected_page_range": [1, 8], "question_type": "cross-doc",
+     "ground_truth": "Both require aircraft identification (UIN vs FAA registration) and an operator/pilot authorization (UAOP vs remote pilot certificate), though specific processes differ."},
+    {"id": "q027", "question": "Do both India's DGCA and the FAA require some form of pre-flight registration before drone operations?",
+     "expected_source": FAA, "expected_page_range": [2, 8], "question_type": "cross-doc",
+     "ground_truth": "Yes - FAA requires aircraft registration, DGCA requires UIN registration via Digital Sky."},
+    {"id": "q028", "question": "How does DGCA's NPNT digital permission system differ from the FAA's VLOS requirement in enforcement mechanism?",
+     "expected_source": DGCA, "expected_page_range": [2, 12], "question_type": "cross-doc",
+     "ground_truth": "NPNT is a digital pre-authorization system enforced via software before takeoff, while VLOS is an operational requirement enforced by the remote pilot during flight."},
+    {"id": "q029", "question": "Do both the DGCA CAR and FAA AC 107-2A define multiple weight/size categories of unmanned aircraft?",
+     "expected_source": DGCA, "expected_page_range": [4, 9], "question_type": "cross-doc",
+     "ground_truth": "DGCA defines categories like nano and micro; FAA Part 107 primarily addresses the 'small' UAS category (under 55 lbs) as a whole."},
+    {"id": "q030", "question": "How might insights from the RPAS airspace integration arXiv paper relate to FAA's VLOS and altitude rules?",
+     "expected_source": ARXIV_INTEGRATION, "expected_page_range": [1, 2], "question_type": "cross-doc",
+     "ground_truth": "The paper discusses airspace class separation requirements that complement FAA's VLOS/altitude operational limits for integrating UAS into shared airspace."},
+
+    # --- More factual / procedural to reach 40 answerable ---
+    {"id": "q031", "question": "What lighting requirement applies to small UAS during night operations under Part 107?",
+     "expected_source": FAA, "expected_page_range": [22, 88], "question_type": "factual",
+     "ground_truth": "Anti-collision lighting visible for at least 3 statute miles."},
+    {"id": "q032", "question": "What is the weight threshold that defines a small unmanned aircraft under Part 107?",
+     "expected_source": FAA, "expected_page_range": [6, 9], "question_type": "factual",
+     "ground_truth": "Less than 55 pounds (25 kg) on takeoff, including payload."},
+    {"id": "q033", "question": "What DGCA category of RPAS has the lowest weight, below nano?",
+     "expected_source": DGCA, "expected_page_range": [4, 9], "question_type": "factual",
+     "ground_truth": "Nano is generally the lowest defined category (up to 250 grams)."},
+    {"id": "q034", "question": "What must be true of a remote pilot's certificate for it to remain valid under Part 107?",
+     "expected_source": FAA, "expected_page_range": [13, 35], "question_type": "factual",
+     "ground_truth": "The pilot must complete recurrent training or testing every 24 months."},
+    {"id": "q035", "question": "What insurance-related obligation does DGCA CAR Series X place on RPAS operators?",
+     "expected_source": DGCA, "expected_page_range": [7, 24], "question_type": "factual",
+     "ground_truth": "Operators must carry adequate third-party liability insurance for RPAS operations."},
+    {"id": "q036", "question": "What exception allows a small UAS to exceed 400 feet AGL under Part 107?",
+     "expected_source": FAA, "expected_page_range": [29, 30], "question_type": "factual",
+     "ground_truth": "Flying within a 400-foot radius of a structure, and not higher than 400 feet above the structure's uppermost limit."},
+    {"id": "q037", "question": "What procedure does an RPAS operator follow if their UAOP needs renewal under DGCA rules?",
+     "expected_source": DGCA, "expected_page_range": [1, 7], "question_type": "procedural",
+     "ground_truth": "Submit a renewal application to DGCA before expiry, following the same documentation process as initial issuance."},
+    {"id": "q038", "question": "What is the procedure for an FAA-certificated remote pilot to report an accident involving their small UAS?",
+     "expected_source": FAA, "expected_page_range": [70, 80], "question_type": "procedural",
+     "ground_truth": "Report to the FAA within 10 calendar days if the accident meets injury or property damage thresholds."},
+    {"id": "q039", "question": "What information is typically included in an RPAS Operations Specifications document under DGCA?",
+     "expected_source": DGCA, "expected_page_range": [21, 26], "question_type": "procedural",
+     "ground_truth": "UIN, type of operations, area of base of operations, approved personnel, and operating limitations such as max endurance and ceiling."},
+    {"id": "q040", "question": "What probabilistic modeling approach does the trajectory paper apply to position data in terminal airspace?",
+     "expected_source": ARXIV_TRAJECTORY, "expected_page_range": [1, 9], "question_type": "factual",
+     "ground_truth": "Learning probabilistic trajectory models from aircraft position data using posterior mean/variance estimation."},
+
+    # --- Unanswerable (10) ---
+    {"id": "q041", "question": "What are the specific drone registration fees charged by the European Union's EASA?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+    {"id": "q042", "question": "What is China's CAAC maximum altitude limit for consumer drones?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+    {"id": "q043", "question": "What changes did the FAA propose for Part 108 BVLOS rules in 2024?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+    {"id": "q044", "question": "What is the current retail price of a DJI Mavic 3 drone in India?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+    {"id": "q045", "question": "What does ICAO Doc 10019 say about RPAS command and control link spectrum allocation?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+    {"id": "q046", "question": "What is the maximum battery capacity allowed on a passenger flight for a drone under DGCA rules?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+    {"id": "q047", "question": "How many UAOPs has DGCA issued in total as of 2025?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+    {"id": "q048", "question": "What is the FAA's policy on drone delivery services operated by Amazon Prime Air specifically?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+    {"id": "q049", "question": "What machine learning architecture does the trajectory paper recommend for real-time onboard collision avoidance?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+    {"id": "q050", "question": "What is the exact penalty fine amount for flying an unregistered drone in Australia?",
+     "expected_source": None, "expected_page_range": None, "question_type": "unanswerable",
+     "ground_truth": None},
+]
+
+
+def build_eval_set() -> list[dict]:
+    assert len(EVAL_QUESTIONS) == 50, f"Expected 50 questions, got {len(EVAL_QUESTIONS)}"
+    answerable = [q for q in EVAL_QUESTIONS if q["question_type"] != "unanswerable"]
+    unanswerable = [q for q in EVAL_QUESTIONS if q["question_type"] == "unanswerable"]
+    assert len(answerable) == 40, f"Expected 40 answerable, got {len(answerable)}"
+    assert len(unanswerable) == 10, f"Expected 10 unanswerable, got {len(unanswerable)}"
+    return EVAL_QUESTIONS
+
+
+def save_eval_set(path: Path = EVAL_SET_PATH) -> None:
+    questions = build_eval_set()
+    path.write_text(json.dumps(questions, indent=2))
+    print(f"Wrote {len(questions)} questions to {path}")
+
+
+if __name__ == "__main__":
+    save_eval_set()
+    by_type: dict[str, int] = {}
+    for q in EVAL_QUESTIONS:
+        by_type[q["question_type"]] = by_type.get(q["question_type"], 0) + 1
+    print("Breakdown by type:", by_type)
