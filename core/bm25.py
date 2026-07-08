@@ -53,6 +53,8 @@ class BM25Retriever:
                     score=float(scores[i]),
                     jurisdiction=meta.get("jurisdiction", "n/a"),
                     doc_type=meta.get("doc_type", "n/a"),
+                    parent_id=meta.get("parent_id", ""),
+                    parent_text=meta.get("parent_text", ""),
                 )
             )
         return results

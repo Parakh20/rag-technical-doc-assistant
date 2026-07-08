@@ -76,9 +76,10 @@ class RetrieverWithReranker:
         use_hybrid: bool = False,
         use_query_expansion: bool = False,
         where: dict | None = None,
+        expand_to_parent: bool = False,
     ) -> list[SearchResult]:
         """Stage 1 dense (or hybrid dense+BM25, optionally multi-query) retrieval
-        -> Stage 2 cross-encoder rerank -> top final_k."""
+        -> Stage 2 cross-encoder rerank -> top final_k -> optional parent-doc expansion."""
         queries = [query]
         if use_query_expansion:
             queries += expand_query(self._get_generator(), query)
@@ -94,7 +95,8 @@ class RetrieverWithReranker:
         if not candidates:
             return []
         if not use_reranker:
-            return candidates[:final_k]
+            top = candidates[:final_k]
+            return self._expand_to_parent(top) if expand_to_parent else top
 
         cross_encoder = self._get_cross_encoder()
         pairs = [(query, c.text) for c in candidates]
@@ -104,11 +106,35 @@ class RetrieverWithReranker:
                 text=c.text, source=c.source, page=c.page,
                 section=c.section, chunk_id=c.chunk_id, score=float(s),
                 jurisdiction=c.jurisdiction, doc_type=c.doc_type,
+                parent_id=c.parent_id, parent_text=c.parent_text,
             )
             for c, s in zip(candidates, scores)
         ]
         reranked.sort(key=lambda r: r.score, reverse=True)
-        return reranked[:final_k]
+        top = reranked[:final_k]
+        return self._expand_to_parent(top) if expand_to_parent else top
+
+    @staticmethod
+    def _expand_to_parent(results: list[SearchResult]) -> list[SearchResult]:
+        """Replace each result's (small) chunk text with its (larger) parent
+        section/page text, deduplicating by parent_id so adjacent chunks
+        from the same page don't produce repeated context - preserves the
+        rank order of first appearance."""
+        seen_parents: set[str] = set()
+        expanded: list[SearchResult] = []
+        for r in results:
+            if not r.parent_id or r.parent_id in seen_parents:
+                continue
+            seen_parents.add(r.parent_id)
+            expanded.append(
+                SearchResult(
+                    text=r.parent_text or r.text, source=r.source, page=r.page,
+                    section=r.section, chunk_id=r.chunk_id, score=r.score,
+                    jurisdiction=r.jurisdiction, doc_type=r.doc_type,
+                    parent_id=r.parent_id, parent_text=r.parent_text,
+                )
+            )
+        return expanded or results
 
     def retrieve_mmr(
         self,

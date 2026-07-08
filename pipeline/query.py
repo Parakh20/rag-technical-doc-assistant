@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from core.compression import compress_chunks
 from core.generation import RAGGenerator, RAGResponse
 from core.retrieval import DEFAULT_DENSE_K, DEFAULT_FINAL_K, RetrieverWithReranker
 from core.vectorstore import ChromaStore
@@ -23,6 +24,8 @@ class QueryPipeline:
         use_hybrid: bool = False,
         use_query_expansion: bool = False,
         where: dict | None = None,
+        expand_to_parent: bool = False,
+        use_compression: bool = False,
         conversation_history: list[dict] | None = None,
     ) -> RAGResponse:
         if use_mmr:
@@ -31,7 +34,10 @@ class QueryPipeline:
             chunks = self.retriever.retrieve(
                 query, dense_k=dense_k, final_k=final_k, use_reranker=use_reranker,
                 use_hybrid=use_hybrid, use_query_expansion=use_query_expansion, where=where,
+                expand_to_parent=expand_to_parent,
             )
+        if use_compression:
+            chunks = compress_chunks(query, chunks, self.retriever.store.embedder)
         return self.generator.generate(query, chunks, conversation_history=conversation_history)
 
 

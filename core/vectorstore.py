@@ -27,6 +27,8 @@ class SearchResult:
     score: float
     jurisdiction: str = "n/a"
     doc_type: str = "n/a"
+    parent_id: str = ""
+    parent_text: str = ""
 
     def to_dict(self) -> dict:
         return {
@@ -38,6 +40,8 @@ class SearchResult:
             "score": self.score,
             "jurisdiction": self.jurisdiction,
             "doc_type": self.doc_type,
+            "parent_id": self.parent_id,
+            "parent_text": self.parent_text,
         }
 
 
@@ -81,6 +85,8 @@ class ChromaStore:
                         "strategy": c.strategy,
                         "jurisdiction": c.jurisdiction,
                         "doc_type": c.doc_type,
+                        "parent_id": c.parent_id,
+                        "parent_text": c.parent_text,
                     }
                     for c in batch
                 ],
@@ -113,6 +119,8 @@ class ChromaStore:
                     score=similarity,
                     jurisdiction=meta.get("jurisdiction", "n/a"),
                     doc_type=meta.get("doc_type", "n/a"),
+                    parent_id=meta.get("parent_id", ""),
+                    parent_text=meta.get("parent_text", ""),
                 )
             )
         return search_results

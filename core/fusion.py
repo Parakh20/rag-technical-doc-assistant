@@ -37,6 +37,8 @@ def reciprocal_rank_fusion(
             score=fused_scores[cid],
             jurisdiction=representative[cid].jurisdiction,
             doc_type=representative[cid].doc_type,
+            parent_id=representative[cid].parent_id,
+            parent_text=representative[cid].parent_text,
         )
         for cid in ordered_ids
     ]
