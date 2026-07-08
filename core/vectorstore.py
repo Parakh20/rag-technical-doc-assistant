@@ -25,6 +25,8 @@ class SearchResult:
     section: str
     chunk_id: str
     score: float
+    jurisdiction: str = "n/a"
+    doc_type: str = "n/a"
 
     def to_dict(self) -> dict:
         return {
@@ -34,6 +36,8 @@ class SearchResult:
             "section": self.section,
             "chunk_id": self.chunk_id,
             "score": self.score,
+            "jurisdiction": self.jurisdiction,
+            "doc_type": self.doc_type,
         }
 
 
@@ -75,15 +79,19 @@ class ChromaStore:
                         "word_count": c.word_count,
                         "chunk_index": c.chunk_index,
                         "strategy": c.strategy,
+                        "jurisdiction": c.jurisdiction,
+                        "doc_type": c.doc_type,
                     }
                     for c in batch
                 ],
             )
 
-    def search(self, query: str, k: int = 10) -> list[SearchResult]:
+    def search(
+        self, query: str, k: int = 10, where: dict | None = None
+    ) -> list[SearchResult]:
         query_embedding = self.embedder.embed_query(query)
         results = self.collection.query(
-            query_embeddings=[query_embedding.tolist()], n_results=k
+            query_embeddings=[query_embedding.tolist()], n_results=k, where=where
         )
         if not results["ids"][0]:
             return []
@@ -103,9 +111,23 @@ class ChromaStore:
                     section=meta.get("section", ""),
                     chunk_id=id_,
                     score=similarity,
+                    jurisdiction=meta.get("jurisdiction", "n/a"),
+                    doc_type=meta.get("doc_type", "n/a"),
                 )
             )
         return search_results
+
+    def get_all_documents(self) -> list[dict]:
+        """Full corpus as {chunk_id, text, metadata} dicts - used by
+        BM25Retriever to build its lexical index over the same chunks."""
+        total = self.collection.count()
+        if total == 0:
+            return []
+        result = self.collection.get(limit=total, include=["documents", "metadatas"])
+        return [
+            {"chunk_id": id_, "text": doc, "metadata": meta}
+            for id_, doc, meta in zip(result["ids"], result["documents"], result["metadatas"])
+        ]
 
     def get_stats(self) -> dict:
         total_chunks = self.collection.count()

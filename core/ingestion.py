@@ -18,6 +18,20 @@ FOOTER_ZONE_FRAC = 0.08
 HEADING_SIZE_MULTIPLIER = 1.15
 MAX_HEADING_CHARS = 120
 
+# Per-source jurisdiction/doc_type, used for metadata filtering (core/vectorstore.py
+# `where` clauses). Config-driven rather than inferred from content, since the
+# corpus is fixed and small - anything not listed here (e.g. arXiv papers)
+# falls back to the research/n-a default below.
+DEFAULT_SOURCE_METADATA = {
+    "dgca_car_section3_series_x_part1.pdf": {"jurisdiction": "india", "doc_type": "regulation"},
+    "faa_ac_107-2a_small_uas.pdf": {"jurisdiction": "us", "doc_type": "regulation"},
+}
+FALLBACK_SOURCE_METADATA = {"jurisdiction": "n/a", "doc_type": "research"}
+
+
+def get_source_metadata(filename: str) -> dict:
+    return DEFAULT_SOURCE_METADATA.get(filename, FALLBACK_SOURCE_METADATA)
+
 
 @dataclass
 class Page:
@@ -26,6 +40,8 @@ class Page:
     page: int
     section: str
     word_count: int
+    jurisdiction: str
+    doc_type: str
 
     def to_dict(self) -> dict:
         return {
@@ -34,6 +50,8 @@ class Page:
             "page": self.page,
             "section": self.section,
             "word_count": self.word_count,
+            "jurisdiction": self.jurisdiction,
+            "doc_type": self.doc_type,
         }
 
 
@@ -45,6 +63,7 @@ class DocumentLoader:
         path = Path(path)
         doc = fitz.open(path)
         body_font_size = self._estimate_body_font_size(doc)
+        source_metadata = get_source_metadata(path.name)
         pages: list[Page] = []
         current_section = ""
         for page_index in range(len(doc)):
@@ -61,6 +80,8 @@ class DocumentLoader:
                     page=page_index + 1,
                     section=current_section,
                     word_count=len(cleaned.split()),
+                    jurisdiction=source_metadata["jurisdiction"],
+                    doc_type=source_metadata["doc_type"],
                 )
             )
         doc.close()

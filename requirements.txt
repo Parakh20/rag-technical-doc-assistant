@@ -11,6 +11,9 @@ tiktoken==0.7.0
 sentence-transformers==3.1.1
 torch==2.4.1
 
+# Retrieval
+rank-bm25==0.2.2
+
 # Vector store
 chromadb==0.5.5
 posthog==3.7.4  # pinned: chromadb 0.5.5's posthog calls break on posthog>=4

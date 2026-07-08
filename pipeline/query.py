@@ -20,13 +20,17 @@ class QueryPipeline:
         final_k: int = DEFAULT_FINAL_K,
         use_reranker: bool = True,
         use_mmr: bool = False,
+        use_hybrid: bool = False,
+        use_query_expansion: bool = False,
+        where: dict | None = None,
         conversation_history: list[dict] | None = None,
     ) -> RAGResponse:
         if use_mmr:
             chunks = self.retriever.retrieve_mmr(query, dense_k=dense_k, final_k=final_k)
         else:
             chunks = self.retriever.retrieve(
-                query, dense_k=dense_k, final_k=final_k, use_reranker=use_reranker
+                query, dense_k=dense_k, final_k=final_k, use_reranker=use_reranker,
+                use_hybrid=use_hybrid, use_query_expansion=use_query_expansion, where=where,
             )
         return self.generator.generate(query, chunks, conversation_history=conversation_history)
 

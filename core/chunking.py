@@ -49,6 +49,8 @@ class Chunk:
     chunk_id: str
     chunk_index: int
     strategy: str
+    jurisdiction: str
+    doc_type: str
 
     def to_dict(self) -> dict:
         return {
@@ -60,6 +62,8 @@ class Chunk:
             "chunk_id": self.chunk_id,
             "chunk_index": self.chunk_index,
             "strategy": self.strategy,
+            "jurisdiction": self.jurisdiction,
+            "doc_type": self.doc_type,
         }
 
 
@@ -204,6 +208,8 @@ def chunk_pages(pages: list[Page], strategy: str = "recursive", **kwargs) -> lis
                     chunk_id=_make_chunk_id(page.source, strategy, per_source_index[page.source]),
                     chunk_index=per_source_index[page.source],
                     strategy=strategy,
+                    jurisdiction=page.jurisdiction,
+                    doc_type=page.doc_type,
                 )
             )
             per_source_index[page.source] += 1
