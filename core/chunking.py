@@ -39,6 +39,16 @@ def count_tokens(text: str) -> int:
     return len(_encoder.encode(text))
 
 
+_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
+
+
+def split_sentences(text: str) -> list[str]:
+    """Shared naive sentence splitter, used by chunking, compression, and
+    citation verification - good enough for regulatory prose; not meant to
+    handle abbreviation edge cases perfectly."""
+    return [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s.strip()]
+
+
 @dataclass
 class Chunk:
     text: str
@@ -180,8 +190,7 @@ class SemanticChunker:
 
     @staticmethod
     def _split_sentences(text: str) -> list[str]:
-        raw = re.split(r"(?<=[.!?])\s+", text)
-        return [s.strip() for s in raw if s.strip()]
+        return split_sentences(text)
 
 
 STRATEGIES = {

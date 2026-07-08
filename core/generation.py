@@ -31,8 +31,8 @@ MAX_TOKENS = 1024
 # every API call (generation + groundedness judge share this limiter) at
 # this interval keeps a sustained eval run under that cap with margin,
 # instead of bursting and getting 429s from q010 onward.
-MIN_SECONDS_BETWEEN_CALLS = 4.5
-MAX_RATE_LIMIT_RETRIES = 3
+MIN_SECONDS_BETWEEN_CALLS = 6.5
+MAX_RATE_LIMIT_RETRIES = 1
 
 _rate_limit_lock = threading.Lock()
 _last_call_time = 0.0
@@ -47,9 +47,10 @@ def _wait_for_rate_limit() -> None:
         _last_call_time = time.monotonic()
 
 
-def _extract_retry_delay(exc: Exception, default: float = 15.0) -> float:
+def _extract_retry_delay(exc: Exception, default: float = 15.0, cap: float = 35.0) -> float:
     match = re.search(r"retry in ([\d.]+)s", str(exc))
-    return float(match.group(1)) + 1.0 if match else default
+    delay = float(match.group(1)) + 1.0 if match else default
+    return min(delay, cap)
 
 
 def _call_with_rate_limit_retry(fn, *args, **kwargs):
@@ -109,6 +110,9 @@ class RAGResponse:
     chunks_used: int
     tokens_used: int
     grounded: bool
+    confidence: float | None = None
+    refused: bool = False
+    citations: list[dict] | None = None
 
     def to_dict(self) -> dict:
         return {
@@ -117,6 +121,9 @@ class RAGResponse:
             "chunks_used": self.chunks_used,
             "tokens_used": self.tokens_used,
             "grounded": self.grounded,
+            "confidence": self.confidence,
+            "refused": self.refused,
+            "citations": self.citations,
         }
 
 
@@ -128,7 +135,11 @@ class RAGGenerator:
                 "GOOGLE_API_KEY not set. Add it to .env "
                 "(see .env.example) or pass api_key explicitly."
             )
-        self.client = genai.Client(api_key=key)
+        # Explicit timeout (ms): without it, a call to an overloaded model
+        # can hang indefinitely instead of raising a fast, retriable error.
+        self.client = genai.Client(
+            api_key=key, http_options=types.HttpOptions(timeout=30_000)
+        )
         self.model = model
         self.fallback_model = FALLBACK_MODEL
 

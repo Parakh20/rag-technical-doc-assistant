@@ -29,6 +29,7 @@ class SearchResult:
     doc_type: str = "n/a"
     parent_id: str = ""
     parent_text: str = ""
+    dense_score: float = 0.0
 
     def to_dict(self) -> dict:
         return {
@@ -42,6 +43,7 @@ class SearchResult:
             "doc_type": self.doc_type,
             "parent_id": self.parent_id,
             "parent_text": self.parent_text,
+            "dense_score": self.dense_score,
         }
 
 
@@ -121,6 +123,7 @@ class ChromaStore:
                     doc_type=meta.get("doc_type", "n/a"),
                     parent_id=meta.get("parent_id", ""),
                     parent_text=meta.get("parent_text", ""),
+                    dense_score=similarity,
                 )
             )
         return search_results

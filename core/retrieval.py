@@ -17,7 +17,7 @@ from sentence_transformers import CrossEncoder
 
 from core.bm25 import BM25Retriever
 from core.fusion import reciprocal_rank_fusion
-from core.query_transform import expand_query
+from core.query_transform import expand_query, hyde_hypothetical_answer
 from core.generation import RAGGenerator
 
 DEFAULT_DENSE_K = 20
@@ -55,13 +55,20 @@ class RetrieverWithReranker:
         return self.generator
 
     def _dense_and_lexical(
-        self, query: str, dense_k: int, where: dict | None, use_hybrid: bool
+        self,
+        lexical_query: str,
+        dense_k: int,
+        where: dict | None,
+        use_hybrid: bool,
+        dense_query: str | None = None,
     ) -> list[SearchResult]:
-        """One query's candidates: dense alone, or RRF-fused dense+BM25."""
-        dense_results = self.store.search(query, k=dense_k, where=where)
+        """One query's candidates: dense alone, or RRF-fused dense+BM25.
+        dense_query overrides the text embedded for the dense leg (HyDE) while
+        BM25 keeps searching on the original lexical_query."""
+        dense_results = self.store.search(dense_query or lexical_query, k=dense_k, where=where)
         if not use_hybrid:
             return dense_results
-        bm25_results = self._get_bm25().search(query, k=dense_k)
+        bm25_results = self._get_bm25().search(lexical_query, k=dense_k)
         if where:
             allowed_sources = {r.source for r in dense_results}
             bm25_results = [r for r in bm25_results if r.source in allowed_sources]
@@ -75,17 +82,24 @@ class RetrieverWithReranker:
         use_reranker: bool = True,
         use_hybrid: bool = False,
         use_query_expansion: bool = False,
+        use_hyde: bool = False,
         where: dict | None = None,
         expand_to_parent: bool = False,
     ) -> list[SearchResult]:
-        """Stage 1 dense (or hybrid dense+BM25, optionally multi-query) retrieval
+        """Stage 1 dense (or hybrid dense+BM25, optionally multi-query/HyDE) retrieval
         -> Stage 2 cross-encoder rerank -> top final_k -> optional parent-doc expansion."""
         queries = [query]
         if use_query_expansion:
             queries += expand_query(self._get_generator(), query)
 
+        hyde_text = hyde_hypothetical_answer(self._get_generator(), query) if use_hyde else None
+
         per_query_results = [
-            self._dense_and_lexical(q, dense_k, where, use_hybrid) for q in queries
+            self._dense_and_lexical(
+                q, dense_k, where, use_hybrid,
+                dense_query=hyde_text if q == query else None,
+            )
+            for q in queries
         ]
         candidates = (
             per_query_results[0]
@@ -107,12 +121,53 @@ class RetrieverWithReranker:
                 section=c.section, chunk_id=c.chunk_id, score=float(s),
                 jurisdiction=c.jurisdiction, doc_type=c.doc_type,
                 parent_id=c.parent_id, parent_text=c.parent_text,
+                dense_score=c.dense_score,
             )
             for c, s in zip(candidates, scores)
         ]
         reranked.sort(key=lambda r: r.score, reverse=True)
         top = reranked[:final_k]
         return self._expand_to_parent(top) if expand_to_parent else top
+
+    def retrieve_with_correction(
+        self,
+        query: str,
+        dense_k: int = DEFAULT_DENSE_K,
+        final_k: int = DEFAULT_FINAL_K,
+        use_hybrid: bool = False,
+        where: dict | None = None,
+        expand_to_parent: bool = False,
+        relevance_threshold: float = -3.0,
+        max_iterations: int = 2,
+    ) -> tuple[list[SearchResult], int]:
+        """Merged CRAG/agentic loop: grade the top cross-encoder score against
+        relevance_threshold; if below it, rewrite the query (reusing query
+        expansion's LLM call for a single reformulation) and re-retrieve,
+        capped at max_iterations rounds. Returns (results, iterations_used).
+
+        relevance_threshold is a raw ms-marco cross-encoder logit (typically
+        in roughly [-11, 11] on this corpus) - not a probability. Tune per
+        corpus via evaluation/metrics.py rather than assuming this default
+        transfers unchanged.
+        """
+        current_query = query
+        results: list[SearchResult] = []
+        for iteration in range(1, max_iterations + 1):
+            results = self.retrieve(
+                current_query, dense_k=dense_k, final_k=final_k, use_reranker=True,
+                use_hybrid=use_hybrid, where=where,
+            )
+            if results and results[0].score >= relevance_threshold:
+                break
+            if iteration == max_iterations:
+                break
+            rewrites = expand_query(self._get_generator(), current_query, num_expansions=1)
+            if not rewrites:
+                break
+            current_query = rewrites[0]
+        if expand_to_parent and results:
+            results = self._expand_to_parent(results)
+        return results, iteration
 
     @staticmethod
     def _expand_to_parent(results: list[SearchResult]) -> list[SearchResult]:
@@ -132,6 +187,7 @@ class RetrieverWithReranker:
                     section=r.section, chunk_id=r.chunk_id, score=r.score,
                     jurisdiction=r.jurisdiction, doc_type=r.doc_type,
                     parent_id=r.parent_id, parent_text=r.parent_text,
+                    dense_score=r.dense_score,
                 )
             )
         return expanded or results

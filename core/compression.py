@@ -6,21 +6,13 @@ summarizer - see docs/superpowers/specs/2026-07-08-advanced-rag-upgrade-design.m
 
 from __future__ import annotations
 
-import re
-
 import numpy as np
 
-from core.chunking import count_tokens
+from core.chunking import count_tokens, split_sentences
 from core.embeddings import EmbeddingModel
 from core.vectorstore import SearchResult
 
 DEFAULT_TOKEN_BUDGET_PER_CHUNK = 150
-
-_SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
-
-
-def _split_sentences(text: str) -> list[str]:
-    return [s.strip() for s in _SENTENCE_SPLIT_RE.split(text) if s.strip()]
 
 
 def compress_chunk(
@@ -31,7 +23,7 @@ def compress_chunk(
 ) -> str:
     """Keep the highest-scoring sentences (by cosine similarity to the query
     embedding) up to token_budget, in their original order."""
-    sentences = _split_sentences(text)
+    sentences = split_sentences(text)
     if len(sentences) <= 1 or count_tokens(text) <= token_budget:
         return text
 
