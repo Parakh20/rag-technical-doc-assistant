@@ -11,6 +11,8 @@ whole corpus.
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+
 from core.vectorstore import ChromaStore, SearchResult  # sets HF offline env vars first
 
 from sentence_transformers import CrossEncoder
@@ -94,13 +96,23 @@ class RetrieverWithReranker:
 
         hyde_text = hyde_hypothetical_answer(self._get_generator(), query) if use_hyde else None
 
-        per_query_results = [
-            self._dense_and_lexical(
-                q, dense_k, where, use_hybrid,
-                dense_query=hyde_text if q == query else None,
-            )
-            for q in queries
-        ]
+        if len(queries) == 1:
+            per_query_results = [
+                self._dense_and_lexical(queries[0], dense_k, where, use_hybrid, dense_query=hyde_text)
+            ]
+        else:
+            # Multiple query variants (query expansion) hit the vector store/BM25
+            # independently - run them concurrently rather than one after another.
+            with ThreadPoolExecutor(max_workers=len(queries)) as pool:
+                per_query_results = list(
+                    pool.map(
+                        lambda q: self._dense_and_lexical(
+                            q, dense_k, where, use_hybrid,
+                            dense_query=hyde_text if q == query else None,
+                        ),
+                        queries,
+                    )
+                )
         candidates = (
             per_query_results[0]
             if len(per_query_results) == 1
