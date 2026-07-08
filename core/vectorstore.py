@@ -1,9 +1,13 @@
-"""Persistent Chroma vector store interface."""
+"""Persistent Chroma vector store interface, plus the VectorStore Protocol
+that ChromaStore/FaissStore/QdrantStore all conform to structurally (see
+core/vectorstore_faiss.py, core/vectorstore_qdrant.py) so callers can swap
+backends without touching retrieval code."""
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Protocol, runtime_checkable
 
 import chromadb
 from chromadb.config import Settings
@@ -45,6 +49,26 @@ class SearchResult:
             "parent_text": self.parent_text,
             "dense_score": self.dense_score,
         }
+
+
+@runtime_checkable
+class VectorStore(Protocol):
+    """Structural interface every vector store backend conforms to.
+    RetrieverWithReranker/BM25Retriever depend on this, not on ChromaStore
+    directly, so a store can be swapped for FaissStore/QdrantStore without
+    touching retrieval code."""
+
+    embedder: EmbeddingModel
+
+    def add_documents(self, chunks: list[Chunk], batch_size: int = ...) -> None: ...
+
+    def search(
+        self, query: str, k: int = ..., where: dict | None = None
+    ) -> list[SearchResult]: ...
+
+    def get_all_documents(self) -> list[dict]: ...
+
+    def get_stats(self) -> dict: ...
 
 
 class ChromaStore:

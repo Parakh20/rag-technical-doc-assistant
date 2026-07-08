@@ -19,6 +19,7 @@ from google import genai
 from google.genai import errors as genai_errors
 from google.genai import types
 
+from core.metrics import QueryMetrics
 from core.vectorstore import SearchResult
 
 load_dotenv(override=True)  # .env wins over a stale key already in the shell
@@ -113,6 +114,7 @@ class RAGResponse:
     confidence: float | None = None
     refused: bool = False
     citations: list[dict] | None = None
+    metrics: "QueryMetrics | None" = None
 
     def to_dict(self) -> dict:
         return {
@@ -124,6 +126,7 @@ class RAGResponse:
             "confidence": self.confidence,
             "refused": self.refused,
             "citations": self.citations,
+            "metrics": self.metrics.to_dict() if self.metrics else None,
         }
 
 

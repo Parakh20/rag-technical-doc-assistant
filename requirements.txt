@@ -17,6 +17,8 @@ rank-bm25==0.2.2
 # Vector store
 chromadb==0.5.5
 posthog==3.7.4  # pinned: chromadb 0.5.5's posthog calls break on posthog>=4
+faiss-cpu==1.14.3
+qdrant-client==1.18.0
 
 # LLM generation
 google-genai==2.9.0
