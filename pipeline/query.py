@@ -38,6 +38,8 @@ class QueryPipeline:
         use_query_expansion: bool = False,
         use_hyde: bool = False,
         use_correction: bool = False,
+        use_raptor: bool = False,
+        raptor_tree_path: str | None = None,
         where: dict | None = None,
         expand_to_parent: bool = False,
         use_compression: bool = False,
@@ -55,7 +57,8 @@ class QueryPipeline:
                 use_mmr=use_mmr, use_hybrid=use_hybrid, use_query_expansion=use_query_expansion,
                 use_hyde=use_hyde, use_correction=use_correction, where=str(where),
                 expand_to_parent=expand_to_parent, use_compression=use_compression,
-                do_verify_citations=do_verify_citations,
+                do_verify_citations=do_verify_citations, use_raptor=use_raptor,
+                raptor_tree_path=raptor_tree_path,
             )
             cached = self.cache.get(cache_key)
             if cached is not None:
@@ -64,7 +67,14 @@ class QueryPipeline:
 
         total_start = time.monotonic()
         retrieval_start = time.monotonic()
-        if use_mmr:
+        if use_raptor:
+            if not raptor_tree_path:
+                raise ValueError("raptor_tree_path is required when use_raptor=True")
+            chunks = self.retriever.retrieve_raptor(
+                query, raptor_tree_path, dense_k=dense_k, final_k=final_k,
+                use_reranker=use_reranker,
+            )
+        elif use_mmr:
             chunks = self.retriever.retrieve_mmr(query, dense_k=dense_k, final_k=final_k)
         elif use_correction:
             chunks, _iterations = self.retriever.retrieve_with_correction(

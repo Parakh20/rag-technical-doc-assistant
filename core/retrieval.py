@@ -21,6 +21,7 @@ from core.bm25 import BM25Retriever
 from core.fusion import reciprocal_rank_fusion
 from core.query_transform import expand_query, hyde_hypothetical_answer
 from core.generation import RAGGenerator
+from core.raptor import RaptorRetriever, load_tree
 
 DEFAULT_DENSE_K = 20
 DEFAULT_FINAL_K = 5
@@ -40,6 +41,7 @@ class RetrieverWithReranker:
         self.generator = generator
         self._cross_encoder: CrossEncoder | None = None
         self._bm25: BM25Retriever | None = None
+        self._raptor_cache: dict[str, RaptorRetriever] = {}
 
     def _get_cross_encoder(self) -> CrossEncoder:
         if self._cross_encoder is None:
@@ -50,6 +52,48 @@ class RetrieverWithReranker:
         if self._bm25 is None:
             self._bm25 = BM25Retriever(self.store)
         return self._bm25
+
+    def _get_raptor(self, tree_path: str) -> RaptorRetriever:
+        if tree_path not in self._raptor_cache:
+            self._raptor_cache[tree_path] = RaptorRetriever(load_tree(tree_path))
+        return self._raptor_cache[tree_path]
+
+    def retrieve_raptor(
+        self,
+        query: str,
+        tree_path: str,
+        dense_k: int = DEFAULT_DENSE_K,
+        final_k: int = DEFAULT_FINAL_K,
+        use_reranker: bool = True,
+    ) -> list[SearchResult]:
+        """Collapsed-tree search across every RAPTOR node (leaf chunk or
+        cluster summary, any level) built by scripts/build_raptor_tree.py,
+        then the same cross-encoder rerank used by retrieve()."""
+        raptor = self._get_raptor(tree_path)
+        scored_nodes = raptor.search(query, self.store.embedder, k=dense_k)
+        candidates = [
+            SearchResult(
+                text=node.text, source=node.source, page=0,
+                section=f"RAPTOR summary (level {node.level})" if node.level > 0 else "",
+                chunk_id=node.node_id, score=score, dense_score=score,
+            )
+            for node, score in scored_nodes
+        ]
+        if not candidates or not use_reranker:
+            return candidates[:final_k]
+
+        cross_encoder = self._get_cross_encoder()
+        pairs = [(query, c.text) for c in candidates]
+        ce_scores = cross_encoder.predict(pairs)
+        reranked = [
+            SearchResult(
+                text=c.text, source=c.source, page=c.page, section=c.section,
+                chunk_id=c.chunk_id, score=float(s), dense_score=c.dense_score,
+            )
+            for c, s in zip(candidates, ce_scores)
+        ]
+        reranked.sort(key=lambda r: r.score, reverse=True)
+        return reranked[:final_k]
 
     def _get_generator(self) -> RAGGenerator:
         if self.generator is None:
