@@ -41,11 +41,23 @@ def write_summary(agg: dict, chunking_comparison: dict | None, path: Path) -> No
         f"  Hit@5:  {agg['hit_at_5']*100:.1f}%",
         f"  MRR:    {agg['mrr']:.2f}",
         f"  Precision@5: {agg['precision_at_5']*100:.1f}%",
+        f"  Recall@5:    {agg['recall_at_5']*100:.1f}%",
+        f"  nDCG@5:      {agg['ndcg_at_5']:.3f}",
         "",
         "GENERATION QUALITY",
         f"  Groundedness score:  {agg['groundedness_score']:.2f} / 1.0",
         f"  Answer rate:         {agg['answer_rate']*100:.1f}% (of {agg['num_answerable']} answerable questions)",
         f"  Refusal rate:        {agg['refusal_rate']*100:.1f}% (of {agg['num_unanswerable']} unanswerable questions)",
+        "",
+        "RAGAS-STYLE / OBSERVABILITY",
+        f"  Faithfulness:        {agg['faithfulness']:.2f}",
+        f"  Answer relevance:    {agg['answer_relevance']:.2f}",
+        f"  Context precision:   {agg['context_precision']*100:.1f}%",
+        f"  Context recall:      {agg['context_recall']*100:.1f}%",
+        f"  Hallucination rate:  {agg['hallucination_rate']:.2f}",
+        f"  Avg latency/query:   {agg['avg_latency_seconds']:.2f}s",
+        f"  Throughput:          {agg['throughput_qps']:.3f} q/s",
+        f"  Avg cost/query:      ${agg['avg_cost_usd']:.5f} (rough estimate, not billed truth)",
     ]
     if chunking_comparison:
         lines += [
@@ -66,11 +78,18 @@ def main() -> int:
                          help="Skip LLM-as-judge groundedness scoring (saves API calls)")
     parser.add_argument("--skip-chunking-compare", action="store_true",
                          help="Skip the fixed/recursive/semantic chunking comparison")
+    parser.add_argument("--hybrid", action="store_true",
+                         help="Enable hybrid (BM25+dense, RRF) retrieval for this run")
+    parser.add_argument("--output-prefix", default="eval",
+                         help="Output file prefix under results/ (default: eval -> eval_results.csv/eval_summary.txt)")
     args = parser.parse_args()
 
-    print("=== Running evaluation suite (50 questions) ===")
-    results = run_evaluation(score_groundedness_enabled=not args.no_groundedness)
-    write_csv(results, RESULTS_DIR / "eval_results.csv")
+    retrieval_kwargs = {"use_hybrid": True} if args.hybrid else None
+    print(f"=== Running evaluation suite (50 questions{', hybrid retrieval' if args.hybrid else ''}) ===")
+    results = run_evaluation(
+        score_groundedness_enabled=not args.no_groundedness, retrieval_kwargs=retrieval_kwargs
+    )
+    write_csv(results, RESULTS_DIR / f"{args.output_prefix}_results.csv")
 
     agg = aggregate_metrics(results)
 
@@ -79,7 +98,7 @@ def main() -> int:
         print("\n=== Comparing chunking strategies (retrieval-only, Hit@5) ===")
         chunking_comparison = compare_chunking_strategies()
 
-    write_summary(agg, chunking_comparison, RESULTS_DIR / "eval_summary.txt")
+    write_summary(agg, chunking_comparison, RESULTS_DIR / f"{args.output_prefix}_summary.txt")
     return 0
 
 

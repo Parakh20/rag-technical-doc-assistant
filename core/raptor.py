@@ -36,8 +36,8 @@ SUMMARY_MAX_TOKENS = 200
 # the whole build. Retried here rather than in core/generation.py's shared
 # rate limiter, since that limiter is also used on the live query path where
 # a hard fast-fail (not a multi-attempt retry loop) is the right behavior.
-MAX_TRANSIENT_RETRIES = 3
-TRANSIENT_RETRY_DELAY_SECONDS = 5.0
+MAX_TRANSIENT_RETRIES = 5
+TRANSIENT_RETRY_DELAY_SECONDS = 8.0
 
 SUMMARY_PROMPT = (
     "Summarize the key facts across these excerpts from a technical/regulatory "
@@ -89,7 +89,7 @@ def _summarize(generator: RAGGenerator, texts: list[str]) -> str:
                     model=generator.fallback_model, contents=contents, config=config,
                 )
             return (response.text or "").strip()
-        except httpx.ConnectError:
+        except httpx.TransportError:  # ConnectError, ReadTimeout, etc. - all transient
             if attempt == MAX_TRANSIENT_RETRIES:
                 raise
             time.sleep(TRANSIENT_RETRY_DELAY_SECONDS)

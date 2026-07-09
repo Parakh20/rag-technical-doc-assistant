@@ -105,10 +105,17 @@ class QuestionResult:
 
 
 def retrieval_metrics_for_question(
-    retriever: RetrieverWithReranker, question: dict, k_max: int = 5
+    retriever: RetrieverWithReranker,
+    question: dict,
+    k_max: int = 5,
+    retrieval_kwargs: dict | None = None,
 ) -> tuple[dict, list[SearchResult]]:
     """Hit@1/3/5, MRR, precision/recall/nDCG@5 for one question.
     Returns (metrics_dict, retrieved_chunks).
+
+    retrieval_kwargs is passed straight through to retriever.retrieve()
+    (e.g. {"use_hybrid": True}) so the same metric computation can be reused
+    to benchmark any retrieval configuration against the same eval set.
 
     This eval set records a single expected_source per question (see
     evaluation/eval_set.py), so recall@5 is numerically identical to
@@ -119,7 +126,9 @@ def retrieval_metrics_for_question(
     item at rank 1" (IDCG=1); it differs from MRR only in using a log
     discount instead of a linear one.
     """
-    results = retriever.retrieve(question["question"], dense_k=20, final_k=k_max)
+    results = retriever.retrieve(
+        question["question"], dense_k=20, final_k=k_max, **(retrieval_kwargs or {})
+    )
     expected = question["expected_source"]
 
     if expected is None:
@@ -196,6 +205,7 @@ def run_evaluation(
     score_groundedness_enabled: bool = True,
     verify_citations_enabled: bool = False,
     questions: list[dict] | None = None,
+    retrieval_kwargs: dict | None = None,
 ) -> list[QuestionResult]:
     store = store or ChromaStore()
     retriever = RetrieverWithReranker(store)
@@ -206,7 +216,9 @@ def run_evaluation(
     for i, q in enumerate(questions, 1):
         print(f"  [{i}/{len(questions)}] {q['id']}...", flush=True)
         start_time = time.monotonic()
-        retrieval_metrics, chunks = retrieval_metrics_for_question(retriever, q)
+        retrieval_metrics, chunks = retrieval_metrics_for_question(
+            retriever, q, retrieval_kwargs=retrieval_kwargs
+        )
 
         try:
             response = _call_with_hard_timeout(
