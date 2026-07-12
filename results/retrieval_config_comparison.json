@@ -1,0 +1,64 @@
+{
+  "baseline": {
+    "hit_at_1": 0.875,
+    "hit_at_3": 0.9,
+    "hit_at_5": 0.95,
+    "mrr": 0.89875,
+    "precision_at_5": 0.86,
+    "recall_at_5": 0.95,
+    "ndcg_at_5": 0.9112114779719848,
+    "avg_seconds_per_query": 1.160318243200163
+  },
+  "hybrid": {
+    "hit_at_1": 0.875,
+    "hit_at_3": 0.9,
+    "hit_at_5": 0.925,
+    "mrr": 0.8895833333333334,
+    "precision_at_5": 0.86,
+    "recall_at_5": 0.925,
+    "ndcg_at_5": 0.8982669139518349,
+    "avg_seconds_per_query": 1.7717287061997922
+  },
+  "query_expansion": {
+    "hit_at_1": 0.875,
+    "hit_at_3": 0.9,
+    "hit_at_5": 0.95,
+    "mrr": 0.8945833333333333,
+    "precision_at_5": 0.8550000000000001,
+    "recall_at_5": 0.95,
+    "ndcg_at_5": 0.9079382341326984,
+    "avg_seconds_per_query": 38.04821711830009
+  },
+  "hyde": {
+    "hit_at_1": 0.875,
+    "hit_at_3": 0.925,
+    "hit_at_5": 0.95,
+    "mrr": 0.9008333333333333,
+    "precision_at_5": 0.85,
+    "recall_at_5": 0.95,
+    "ndcg_at_5": 0.9129445640201499,
+    "avg_seconds_per_query": 40.21534805410047
+  },
+  "crag": {
+    "hit_at_1": 0.875,
+    "hit_at_3": 0.9,
+    "hit_at_5": 0.95,
+    "mrr": 0.89875,
+    "precision_at_5": 0.86,
+    "recall_at_5": 0.95,
+    "ndcg_at_5": 0.9112114779719848,
+    "avg_seconds_per_query": 1.9948828838249029,
+    "avg_iterations": 1.0
+  },
+  "raptor": {
+    "hit_at_1": 0.35,
+    "hit_at_3": 0.875,
+    "hit_at_5": 0.925,
+    "mrr": 0.6208333333333333,
+    "precision_at_5": 0.685,
+    "recall_at_5": 0.925,
+    "ndcg_at_5": 0.6994987046893983,
+    "avg_seconds_per_query": 2.0557273502745375,
+    "tree_config": "cluster_size=15, max_levels=2, 324 leaves -> 22 L1 summaries -> 1 root"
+  }
+}

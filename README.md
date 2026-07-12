@@ -81,27 +81,23 @@ performs as well as the more expensive semantic strategy here, so there's
 no quality reason to pay the extra embedding cost for semantic chunking on
 this kind of regulatory/technical text.
 
-**Generation quality (partial - see note):**
+**Generation quality (Gemini, `gemini-3.5-flash` -> `gemini-3.1-flash-lite` fallback):**
 
 | Metric | Score |
 |---|---|
-| Groundedness score | 0.97 / 1.0 (mean over 20 successfully-judged answers) |
-| Answer rate | 47.5% (raw aggregate, partial run) |
-| Refusal rate | 100% (artifact, not a real measurement - see note) |
+| Groundedness score | 0.96 / 1.0 |
+| Answer rate | 77.5% (of 40 answerable questions) |
+| Refusal rate | 50.0% (of 10 unanswerable questions; see note) |
 
-> **Note on completion:** the evaluator account's credit balance was
-> exhausted partway through the 50-call generation run. 21 of 40
-> answerable questions got a real generation (19 of 21 grounded, mean
-> groundedness 0.97 on those that succeeded); the remaining answerable
-> questions and **all 10 unanswerable questions** failed with "credit
-> balance too low" before getting a model response. The refusal_rate
-> figure above is therefore not a real measurement of refusal behavior -
-> it reflects zero successful unanswerable-question generations, not
-> correct refusals. Re-run `python scripts/run_eval.py` with a
-> sufficient balance for a complete, trustworthy generation-quality
-> number. Full per-question detail (including which rows are real vs.
-> `<GENERATION FAILED: ...>`) is in `results/eval_results.csv`; the raw
-> annotated summary is in `results/eval_summary.txt`.
+> **Note on completion:** 42 of 50 questions got a real model response;
+> 8 failed on transient network errors in this sandbox (DNS blips, one
+> network-unreachable, one read timeout - not model-side failures). Of
+> the 10 unanswerable questions, 8 got a real response and 3 of those 8
+> were genuinely refused (37.5% true refusal accuracy on real
+> responses). The reported 50% refusal_rate also counts the 2
+> failed-to-respond unanswerable questions as "refused" by default,
+> which inflates it slightly versus the true 37.5% figure. Full
+> per-question detail is in `results/eval_results.csv`.
 
 ## Setup
 
@@ -151,11 +147,18 @@ print(response.answer)
   when the model is already cached, and on an unreliable network that call
   can hang for many minutes instead of failing fast.
 - `evaluation/metrics.py` wraps each generation/judge call in a hard
-  daemon-thread timeout (`GENERATION_TIMEOUT_SECONDS`). The Anthropic
-  client's own `timeout=` config isn't reliably honored against a half-dead
+  daemon-thread timeout (`GENERATION_TIMEOUT_SECONDS`). API client
+  `timeout=` config isn't always reliably honored against a half-dead
   socket in every environment; the daemon-thread wrapper guarantees the
   eval loop keeps moving regardless of what the underlying connection is
   doing, at the cost of occasionally abandoning an orphaned thread.
+- `core/generation.py` paces every Gemini API call (`MIN_SECONDS_BETWEEN_CALLS`)
+  and retries 429s using the API's own suggested delay. The free tier caps
+  `gemini-3.1-flash-lite` at 15 requests/minute; without pacing, a
+  sustained eval run bursts past that immediately. The `genai.Client`
+  also gets an explicit `http_options.timeout` - without it, a call to an
+  overloaded model can hang indefinitely instead of raising a fast,
+  retriable error.
 
 ## Key technical decisions
 
