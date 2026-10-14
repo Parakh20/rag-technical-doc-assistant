@@ -1,7 +1,7 @@
 """Extractive context compression: shrink each retrieved chunk down to its
 most query-relevant sentences before it hits the generator, cutting tokens
 without an extra LLM call (no added latency/cost, unlike an LLM-based
-summarizer - see docs/superpowers/specs/2026-07-08-advanced-rag-upgrade-design.md).
+summarizer - see docs/design/advanced-rag-upgrade.md).
 """
 
 from __future__ import annotations

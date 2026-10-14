@@ -2,7 +2,7 @@
 normalized query plus every flag/filter that affects the answer - so
 "What is BVLOS?" with hybrid=True and jurisdiction=india caches separately
 from the same question with different settings. Process-lifetime only (no
-persistence across restarts) - see docs/superpowers/specs/2026-07-08-advanced-rag-upgrade-design.md
+persistence across restarts) - see docs/design/advanced-rag-upgrade.md
 for why that's sufficient here.
 """
 

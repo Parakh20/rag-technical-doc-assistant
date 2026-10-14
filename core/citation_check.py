@@ -2,7 +2,7 @@
 generated answer, check the cited chunk actually supports it, using the
 same cross-encoder already loaded for reranking (score, not the strict
 entailment interpretation of an NLI model - approved trade-off, see
-docs/superpowers/specs/2026-07-08-advanced-rag-upgrade-design.md).
+docs/design/advanced-rag-upgrade.md).
 """
 
 from __future__ import annotations
