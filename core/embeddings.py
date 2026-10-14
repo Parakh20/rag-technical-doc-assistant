@@ -9,12 +9,36 @@ from __future__ import annotations
 
 import os
 
-# Force offline mode before importing sentence_transformers: huggingface_hub
-# otherwise makes a "check for newer files" network request even when the
-# model is already cached, and that request hanging is what was actually
-# causing multi-minute stalls (not the Claude API calls).
-os.environ.setdefault("HF_HUB_OFFLINE", "1")
-os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
+# Models the default query path needs (embedder + reranker). Kept in sync
+# with PRIMARY_MODEL below and core.retrieval.CROSS_ENCODER_MODEL.
+_DEFAULT_PATH_MODELS = ("BAAI/bge-small-en-v1.5", "cross-encoder/ms-marco-MiniLM-L-6-v2")
+
+
+def _hf_hub_cache_dir() -> str:
+    if os.environ.get("HF_HUB_CACHE"):
+        return os.environ["HF_HUB_CACHE"]
+    cache_home = os.environ.get("XDG_CACHE_HOME", os.path.join(os.path.expanduser("~"), ".cache"))
+    hf_home = os.environ.get("HF_HOME", os.path.join(cache_home, "huggingface"))
+    return os.path.join(hf_home, "hub")
+
+
+def _models_cached(model_ids: tuple[str, ...]) -> bool:
+    cache_dir = _hf_hub_cache_dir()
+    return all(
+        os.path.isdir(os.path.join(cache_dir, "models--" + model_id.replace("/", "--")))
+        for model_id in model_ids
+    )
+
+
+# Force offline mode before importing sentence_transformers once the models
+# are cached: huggingface_hub otherwise makes a "check for newer files"
+# network request even when the model is already cached, and that request
+# hanging was causing multi-minute stalls. On a fresh machine the weights are
+# not cached yet, so stay online for the first run to let them download.
+# An explicit HF_HUB_OFFLINE / TRANSFORMERS_OFFLINE in the environment wins.
+if _models_cached(_DEFAULT_PATH_MODELS):
+    os.environ.setdefault("HF_HUB_OFFLINE", "1")
+    os.environ.setdefault("TRANSFORMERS_OFFLINE", "1")
 
 import numpy as np
 from sentence_transformers import SentenceTransformer
