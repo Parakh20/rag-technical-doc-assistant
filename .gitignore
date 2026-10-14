@@ -10,3 +10,12 @@ results/*.txt
 *.egg-info/
 .DS_Store
 .gstack/
+
+# Local index/vector-store output
+vectorstore_data_faiss/
+vectorstore_data_qdrant/
+
+# Local AI-assistant tooling
+.claude/
+.superpowers/
+docs/superpowers/
